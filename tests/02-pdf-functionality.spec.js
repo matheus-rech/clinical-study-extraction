@@ -13,11 +13,11 @@ test.describe('PDF Functionality', () => {
     await expect(toolbar).toBeVisible();
     
     // Check toolbar buttons
-    await expect(page.getByText('Load PDF')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Load PDF/ })).toBeVisible();
     await expect(page.locator('#pdf-prev-page')).toBeVisible();
     await expect(page.locator('#pdf-next-page')).toBeVisible();
     await expect(page.locator('#zoom-level')).toBeVisible();
-    await expect(page.getByText('Fit Width')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Fit Width/ })).toBeVisible();
   });
 
   test('should have search functionality', async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe('PDF Functionality', () => {
     await expect(searchBox).toBeVisible();
     await expect(searchBox).toHaveAttribute('placeholder', 'Search PDF...');
     
-    const searchButton = page.locator('button:has-text("🔍")');
+    const searchButton = page.getByRole('button', { name: /🔍/ });
     await expect(searchButton).toBeVisible();
   });
 

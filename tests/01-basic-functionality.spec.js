@@ -42,7 +42,7 @@ test.describe('Basic Application Functionality', () => {
     await expect(page.locator('#journal')).toBeVisible();
     
     // Check linked-input class
-    await expect(page.locator('.linked-input')).toHaveCount(9); // Step 1 has 9 fields
+    await expect(page.locator('#step-1 .linked-input')).toHaveCount(9); // Step 1 has 9 fields
   });
 
   test('should show export options in trace panel', async ({ page }) => {
@@ -50,10 +50,10 @@ test.describe('Basic Application Functionality', () => {
     await expect(exportSection).toBeVisible();
     
     // Check export buttons
-    await expect(page.getByText('JSON')).toBeVisible();
-    await expect(page.getByText('CSV')).toBeVisible();
-    await expect(page.getByText('Audit')).toBeVisible();
-    await expect(page.getByText('Ann. PDF')).toBeVisible();
+    await expect(page.getByRole('button', { name: /JSON/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /CSV/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Audit/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ann\. PDF/ })).toBeVisible();
   });
 
   test('should handle keyboard shortcuts', async ({ page }) => {

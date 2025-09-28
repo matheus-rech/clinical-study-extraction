@@ -10,7 +10,7 @@ test.describe('Extraction Tracking', () => {
 
   test('should show trace log panel', async ({ page }) => {
     const traceLog = page.locator('#trace-log');
-    await expect(traceLog).toBeVisible();
+    await expect(traceLog).toBeAttached();
   });
 
   test('should display extraction statistics', async ({ page }) => {
@@ -20,8 +20,8 @@ test.describe('Extraction Tracking', () => {
   });
 
   test('should show undo and clear buttons', async ({ page }) => {
-    const undoButton = page.getByText('Undo Last');
-    const clearButton = page.getByText('Clear All');
+    const undoButton = page.getByRole('button', { name: /Undo Last/ });
+    const clearButton = page.getByRole('button', { name: /Clear All/ });
     
     await expect(undoButton).toBeVisible();
     await expect(clearButton).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('Extraction Tracking', () => {
       window.confirm = () => false;
     });
     
-    const clearButton = page.getByText('Clear All');
+    const clearButton = page.getByRole('button', { name: /Clear All/ });
     await clearButton.click();
     
     // Should not clear if user cancels

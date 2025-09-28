@@ -16,7 +16,7 @@ test.describe('Integration Tests', () => {
     await page.locator('#year').fill('2023');
     
     // Step 2: Save progress
-    await page.getByText('Save Progress').click();
+    await page.getByRole('button', { name: /Save Progress/ }).click();
     
     // Should show success message
     const statusMessage = page.locator('#extraction-status');
@@ -34,7 +34,7 @@ test.describe('Integration Tests', () => {
     
     // Add some data
     await page.locator('#citation').fill('Persistent Citation');
-    await page.getByText('Save Progress').click();
+    await page.getByRole('button', { name: /Save Progress/ }).click();
     
     // Reload page
     await page.reload();
@@ -48,8 +48,8 @@ test.describe('Integration Tests', () => {
   test('should handle error conditions gracefully', async ({ page }) => {
     // Test with invalid API key
     await page.locator('#api-key-input').fill('invalid-key');
-    await page.getByText('Save', { exact: true }).click();
-    await page.getByText('Test').click();
+    await page.getByRole('button', { name: /^Save$/ }).click();
+    await page.getByRole('button', { name: /^Test$/ }).click();
     
     // Should show error status
     const apiStatus = page.locator('#api-status');
@@ -62,8 +62,9 @@ test.describe('Integration Tests', () => {
     await page.locator('#doi').fill('10.1234/state-test');
     
     // Toggle articles list
-    await page.getByText('Show Queue Status').click();
-    await page.getByText('Hide Queue Status').click();
+    const toggleButton = page.locator('button[onclick="toggleArticlesList()"]').first();
+    await toggleButton.click();
+    await toggleButton.click();
     
     // Fields should maintain their values
     await expect(page.locator('#citation')).toHaveValue('State Test Citation');

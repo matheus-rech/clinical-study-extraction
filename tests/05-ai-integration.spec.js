@@ -18,7 +18,7 @@ test.describe('AI Integration', () => {
     await expect(apiKeyInput).toHaveValue('test-api-key');
     
     // Test save button
-    const saveButton = page.getByText('Save', { exact: true });
+    const saveButton = page.getByRole('button', { name: /^Save$/ });
     await expect(saveButton).toBeVisible();
     await saveButton.click();
     
@@ -28,7 +28,7 @@ test.describe('AI Integration', () => {
   });
 
   test('should show test button for API key', async ({ page }) => {
-    const testButton = page.locator('button:has-text("Test")');
+    const testButton = page.getByRole('button', { name: /^Test$/ });
     await expect(testButton).toBeVisible();
   });
 
@@ -41,7 +41,7 @@ test.describe('AI Integration', () => {
   });
 
   test('should have AI extract functionality per step', async ({ page }) => {
-    const aiExtractButton = page.getByText('AI Extract');
+    const aiExtractButton = page.getByRole('button', { name: /AI Extract/ }).first();
     await expect(aiExtractButton).toBeVisible();
     
     // Click should trigger AI extraction (would need API key)

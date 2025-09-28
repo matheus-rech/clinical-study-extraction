@@ -9,7 +9,7 @@ test.describe('Systematic Review Workflow', () => {
   });
 
   test('should display articles list when toggled', async ({ page }) => {
-    const toggleButton = page.getByText('Show Queue Status');
+    const toggleButton = page.locator('button[onclick="toggleArticlesList()"]').first();
     await expect(toggleButton).toBeVisible();
     
     // Initially hidden
@@ -21,12 +21,12 @@ test.describe('Systematic Review Workflow', () => {
     await expect(articlesList).not.toHaveAttribute('style', /display:\s*none/);
     
     // Button text should change
-    await expect(page.getByText('Hide Queue Status')).toBeVisible();
+    await expect(toggleButton).toContainText(/Hide Queue Status/);
   });
 
   test('should show save and complete buttons', async ({ page }) => {
-    await expect(page.getByText('Save Progress')).toBeVisible();
-    await expect(page.getByText('Complete Article')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Save Progress/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Complete Article/ })).toBeVisible();
   });
 
   test('should track progress stats', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Systematic Review Workflow', () => {
       window.localStorage.clear();
     });
     
-    const saveButton = page.getByText('Save Progress');
+    const saveButton = page.getByRole('button', { name: /Save Progress/ });
     await saveButton.click();
     
     // Should show status message
@@ -56,8 +56,8 @@ test.describe('Systematic Review Workflow', () => {
   });
 
   test('should show export database options', async ({ page }) => {
-    await expect(page.getByText('Main Data CSV')).toBeVisible();
-    await expect(page.getByText('Trace Data CSV')).toBeVisible();
-    await expect(page.getByText('Complete SR Export')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Main Data CSV/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Trace Data CSV/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Complete SR Export/ })).toBeVisible();
   });
 });

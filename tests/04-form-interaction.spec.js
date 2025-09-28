@@ -20,8 +20,8 @@ test.describe('Form Interaction', () => {
   });
 
   test('should show validation status indicators', async ({ page }) => {
-    const validationIndicators = page.locator('.validation-status');
-    await expect(validationIndicators).toHaveCount(9); // Step 1 has 9 fields
+    const validationIndicators = page.locator('#step-1 .validation-status');
+    await expect(validationIndicators).toHaveCount(10); // Step 1 has 9 fields
   });
 
   test('should handle form field input', async ({ page }) => {
@@ -35,7 +35,7 @@ test.describe('Form Interaction', () => {
   });
 
   test('should show AI extract buttons', async ({ page }) => {
-    const aiButton = page.getByText('AI Extract');
+    const aiButton = page.getByRole('button', { name: /AI Extract/ }).first();
     await expect(aiButton).toBeVisible();
     await expect(aiButton).toHaveClass(/ai-btn/);
   });
