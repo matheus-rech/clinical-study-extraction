@@ -308,6 +308,16 @@ npm run test:headed
 npm run test:debug
 ```
 
+### Codex-powered GitLab pipeline
+- `.gitlab-ci.yml` integrates Codex CLI stages for Code Quality, security triage, and optional remediation.
+- Requires a masked `OPENAI_API_KEY` CI variable and a Linux runner with internet egress.
+- See `docs/gitlab-codex-ci.md` for setup details, prompt tuning, and troubleshooting tips.
+
+### Codex-powered GitHub Actions
+- `.github/workflows/codex-secure-quality.yml` mirrors the Codex pipeline for repositories hosted on GitHub.
+- Set the repository secret `OPENAI_API_KEY` and ensure runners can reach `api.openai.com`.
+- See `docs/github-codex-ci.md` for job breakdowns, artifact expectations, and local prompt iteration guidance.
+
 ### CI/CD Integration
 - **GitHub Actions**: Automated testing on push/PR
 - **Matrix Testing**: Parallel execution across browsers

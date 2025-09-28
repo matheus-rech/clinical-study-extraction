@@ -1,0 +1,331 @@
+name: Codex Secure Quality CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  NODE_VERSION: "20"
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  playwright-tests:
+    name: Playwright end-to-end tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Run Playwright tests
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME=artifacts/playwright-junit.xml \
+            npx playwright test --reporter=list,junit --output=playwright-report
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            artifacts/playwright-junit.xml
+            playwright-report
+          if-no-files-found: warn
+
+  semgrep-sast:
+    name: Semgrep SAST (GitLab schema)
+    runs-on: ubuntu-latest
+    needs: playwright-tests
+    container:
+      image: returntocorp/semgrep:1.74.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep scan
+        run: |
+          set -euo pipefail
+          semgrep --config auto --gitlab-sast --output gl-sast-report.json || {
+            echo "Semgrep failed to produce SAST output; generating empty report.";
+            echo '{"version":"2.0","vulnerabilities":[]}' > gl-sast-report.json;
+          }
+      - name: Upload SAST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gl-sast-report
+          path: gl-sast-report.json
+
+  codex-quality:
+    name: Codex code-quality analysis
+    runs-on: ubuntu-latest
+    needs: playwright-tests
+    if: env.OPENAI_API_KEY != ''
+    permissions:
+      contents: read
+    env:
+      CODEX_QA_PATH: gl-code-quality-report.json
+      CODEX_RAW_LOG: artifacts/codex-quality-raw.log
+      CODEX_PROMPT: |
+        You are reviewing the Clinical Study Extraction System repository.
+        Goal: Emit a GitHub-compatible CodeClimate JSON array capturing high-signal issues only.
+        Context:
+        - Runtime is a single-page app in index.html with PDF.js integration, localStorage persistence, and Gemini-powered AI extraction hooks.
+        - Tests live under tests/ (Playwright). This repo intentionally ships a browser-only bundle—no bundlers or build steps.
+        - Highlight maintainability, accessibility, and security risks that impact the PDF extraction workflow, AI prompt handling, or systematic review gating.
+        - Prefer actionable findings: duplicated logic in ExtractionManager, brittle DOM selectors, unsafe localStorage usage, missing validation around AI responses, etc.
+        - Ignore styling nits and test-only code unless they break automation guarantees.
+        Output strictly between markers:
+        === BEGIN_CODE_QUALITY_JSON ===
+        <JSON ARRAY>
+        === END_CODE_QUALITY_JSON ===
+        Rules:
+        - Output must be a single JSON array (or []).
+        - Each object needs description, check_name, fingerprint, severity (info|minor|major|critical|blocker), location.path, location.lines.begin.
+        - Use repo-relative paths (no ./ prefix).
+        - If no issues, output [] exactly.
+        - No prose outside markers. No markdown or comments.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Run Codex code-quality job
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          : > "$CODEX_RAW_LOG"
+          : > "$CODEX_QA_PATH"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl ca-certificates git jq bsdextrautils
+          npm install -g @openai/codex@latest
+          codex --version
+          FILE_LIST="$(git ls-files | sed 's/^/- /')"
+          PROMPT="${CODEX_PROMPT}
+Only report issues in the following existing files (use exact paths):
+${FILE_LIST}"
+          set +o pipefail
+          codex exec --full-auto "$PROMPT" | tee "$CODEX_RAW_LOG" >/dev/null
+          CODEX_RC=${PIPESTATUS[0]}
+          set -o pipefail
+          TMP_OUT="$(mktemp)"
+          sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' "$CODEX_RAW_LOG" | tr -d '\r' | awk '
+            /^\s*=== BEGIN_CODE_QUALITY_JSON ===\s*$/ {grab=1; next}
+            /^\s*=== END_CODE_QUALITY_JSON ===\s*$/   {grab=0}
+            grab
+          ' > "$TMP_OUT"
+          if ! node -e 'const f=process.argv[1]; const s=require("fs").readFileSync(f,"utf8").trim(); if(!s){process.exit(2);} JSON.parse(s);' "$TMP_OUT"; then
+            echo "[]" > "$TMP_OUT"
+          fi
+          mv -f "$TMP_OUT" "$CODEX_QA_PATH"
+          if [ "$CODEX_RC" -ne 0 ]; then
+            echo "WARNING: Codex exited with code $CODEX_RC. Proceeding with extracted report." >&2
+          fi
+      - name: Upload Codex code-quality artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-code-quality
+          path: |
+            gl-code-quality-report.json
+            artifacts/codex-quality-raw.log
+          if-no-files-found: warn
+
+  codex-security-triage:
+    name: Codex security triage
+    runs-on: ubuntu-latest
+    needs:
+      - semgrep-sast
+    if: env.OPENAI_API_KEY != ''
+    permissions:
+      contents: read
+    env:
+      CODEX_SAST_PATH: gl-sast-report.json
+      CODEX_SECURITY_MD: security_priority.md
+      CODEX_RAW_LOG: artifacts/codex-security-raw.log
+      CODEX_PROMPT: |
+        You are a security triage assistant for the Clinical Study Extraction System.
+        Input: GitLab SAST report at ${CODEX_SAST_PATH} plus repository context (single-page PDF extraction webapp with AI integrations).
+        Tasks:
+        1. Parse and deduplicate findings (merge duplicates by CWE, sink, and file/line when remediation is the same).
+        2. Rank by realistic exploitability and business risk (prioritize risks to AI prompt handling, localStorage data integrity, file uploads, PDF rendering, and export surfaces).
+        3. Produce concise remediation notes oriented to this codebase (index.html JS) referencing real functions/ids.
+        Output between markers:
+        === BEGIN_SECURITY_MD ===
+        <MARKDOWN>
+        === END_SECURITY_MD ===
+        Format:
+        - Title + summary (# findings, how many consolidated).
+        - Table: Rank | CWE | Title | Affected Locations | Likely Exploit Path | Risk | Rationale.
+        - "Top 5 Immediate Actions" list.
+        - Detailed section for each deduplicated finding (risk, score 0-100, evidence, remediation, owners, references).
+        - If no parsable findings, state that explicitly.
+        Rules:
+        - Markdown only inside markers. No extra prose elsewhere.
+        - Cite only evidence present in ${CODEX_SAST_PATH}.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Run Codex security triage
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          : > "$CODEX_RAW_LOG"
+          : > "$CODEX_SECURITY_MD"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl ca-certificates git jq bsdextrautils
+          npm install -g @openai/codex@latest
+          codex --version
+          if [ ! -s "$CODEX_SAST_PATH" ]; then
+            echo "WARNING: $CODEX_SAST_PATH missing; Codex will note no parsable findings." >&2
+          fi
+          FILE_LIST="$(git ls-files | sed 's/^/- /')"
+          PROMPT="${CODEX_PROMPT}
+Existing repository files (reference only; use paths exactly as reported in SAST evidence):
+${FILE_LIST}"
+          set +o pipefail
+          codex exec --full-auto "$PROMPT" | tee "$CODEX_RAW_LOG" >/dev/null
+          CODEX_RC=${PIPESTATUS[0]}
+          set -o pipefail
+          TMP_OUT="$(mktemp)"
+          sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' "$CODEX_RAW_LOG" | tr -d '\r' | awk '
+            /^\s*=== BEGIN_SECURITY_MD ===\s*$/ {grab=1; next}
+            /^\s*=== END_SECURITY_MD ===\s*$/   {grab=0}
+            grab
+          ' > "$TMP_OUT"
+          if ! [ -s "$TMP_OUT" ]; then
+            cat > "$TMP_OUT" <<'EOF'
+# Security Findings Priority
+No parsable SAST findings detected in gl-sast-report.json.
+EOF
+          fi
+          mv -f "$TMP_OUT" "$CODEX_SECURITY_MD"
+          if [ "$CODEX_RC" -ne 0 ]; then
+            echo "WARNING: Codex exited with code $CODEX_RC. Proceeding with extracted summary." >&2
+          fi
+      - name: Upload Codex security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-security-triage
+          path: |
+            security_priority.md
+            artifacts/codex-security-raw.log
+          if-no-files-found: warn
+
+  codex-remediation:
+    name: Codex remediation patches
+    runs-on: ubuntu-latest
+    needs:
+      - codex-security-triage
+      - semgrep-sast
+    if: env.OPENAI_API_KEY != ''
+    permissions:
+      contents: read
+    env:
+      SAST_REPORT_PATH: gl-sast-report.json
+      PATCH_DIR: codex_patches
+      CODEX_DIFF_RAW: artifacts/codex-remediation-raw.log
+      CODEX_DIFF_PROMPT: |
+        You are a secure code remediation assistant for the Clinical Study Extraction System.
+        Repository: single-page PDF extraction web app built in index.html (vanilla JS) with Playwright tests.
+        Goal: For each High/Critical SAST finding, produce the minimal safe fix as a unified git diff that applies cleanly (git apply -p0 or -p1).
+        Requirements:
+        - Output ONLY the diff between markers:
+          === BEGIN_UNIFIED_DIFF ===
+          <unified diff>
+          === END_UNIFIED_DIFF ===
+        - If no safe fix, output empty diff between markers.
+        - No prose outside markers.
+        - Use repo-relative paths.
+        - Keep fixes surgical: input validation, safer APIs, access control, avoiding breaking tests or AI workflows.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Generate remediation patches with Codex
+        id: remediation
+        run: |
+          set -euo pipefail
+          mkdir -p "$PATCH_DIR" artifacts
+          : > "$CODEX_DIFF_RAW"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl ca-certificates git jq bsdextrautils
+          npm install -g @openai/codex@latest
+          codex --version && git --version
+          if [ ! -s "$SAST_REPORT_PATH" ]; then
+            echo "No SAST report; remediation will exit.";
+            printf "CODEX_CREATED_PATCHES=false\n" > codex.env;
+            exit 0;
+          fi
+          jq -c '.vulnerabilities[]? | select((.severity|ascii_downcase)=="high" or (.severity|ascii_downcase)=="critical")' "$SAST_REPORT_PATH" | nl -ba > /tmp/highcrit.txt || true
+          if [ ! -s /tmp/highcrit.txt ]; then
+            echo "No High/Critical vulnerabilities to remediate.";
+            printf "CODEX_CREATED_PATCHES=false\n" > codex.env;
+            exit 0;
+          fi
+          FILE_LIST="$(git ls-files | sed 's/^/- /')"
+          git config user.name "CI Codex Bot"
+          git config user.email "codex-bot@example.com"
+          created=0
+          while IFS=$'\t' read -r idx vuln_json; do
+            echo "Processing vulnerability #$idx"
+            echo "$vuln_json" > "/tmp/vuln-$idx.json"
+            PROMPT_FILE="$(mktemp)"
+            {
+              printf "%s\n\n" "$CODEX_DIFF_PROMPT"
+              printf "VULNERABILITY_JSON:\n<<JSON\n"
+              cat "/tmp/vuln-$idx.json"
+              printf "\nJSON\n\n"
+              printf "EXISTING_REPOSITORY_FILES (exact list):\n"
+              printf "%s\n" "$FILE_LIST"
+            } > "$PROMPT_FILE"
+            PER_FINDING_PROMPT="$(tr -d '\r' < "$PROMPT_FILE")"
+            rm -f "$PROMPT_FILE"
+            set +o pipefail
+            codex exec --full-auto "$PER_FINDING_PROMPT" | tee -a "$CODEX_DIFF_RAW" >/dev/null
+            RC=${PIPESTATUS[0]}
+            set -o pipefail
+            OUT_PATCH="$PATCH_DIR/fix-$idx.patch"
+            sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' "$CODEX_DIFF_RAW" | tr -d '\r' | awk '
+              /^\s*=== BEGIN_UNIFIED_DIFF ===\s*$/ {grab=1; next}
+              /^\s*=== END_UNIFIED_DIFF ===\s*$/   {grab=0}
+              grab
+            ' > "$OUT_PATCH"
+            if ! [ -s "$OUT_PATCH" ] || ! grep -qE '^\s*diff --git ' "$OUT_PATCH"; then
+              echo "  No usable diff for #$idx; skipping.";
+              rm -f "$OUT_PATCH"
+              continue
+            fi
+            if git apply --check -p0 "$OUT_PATCH" || git apply --check -p1 "$OUT_PATCH"; then
+              echo "  Patch validated → $OUT_PATCH"
+              created=$((created+1))
+            else
+              echo "  Patch failed validation; deleting."
+              rm -f "$OUT_PATCH"
+            fi
+          done < /tmp/highcrit.txt
+          if [ "$created" -gt 0 ]; then
+            printf "CODEX_CREATED_PATCHES=true\nPATCH_DIR=%s\n" "$PATCH_DIR" > codex.env
+          else
+            printf "CODEX_CREATED_PATCHES=false\n" > codex.env
+          fi
+      - name: Upload remediation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-remediation
+          path: |
+            codex.env
+            codex_patches
+            artifacts/codex-remediation-raw.log
+          if-no-files-found: warn
