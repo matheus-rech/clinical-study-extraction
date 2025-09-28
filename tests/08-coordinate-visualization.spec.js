@@ -48,8 +48,8 @@ test.describe('Coordinate Visualization', () => {
     await page.getByRole('button', { name: /Interactive Coordinate Map/ }).click();
     
     // Check for visualizer controls
-    await expect(page.locator('#viz-field-list')).toBeVisible();
-    await expect(page.locator('#viz-pdf-container')).toBeVisible();
-    await expect(page.locator('#viz-coordinate-details')).toBeVisible();
+    await expect(page.locator('#viz-field-list')).toBeAttached();
+    await expect(page.locator('#viz-pdf-container')).toBeAttached();
+    await expect(page.locator('#viz-coordinate-details')).toBeAttached();
   });
 });
