@@ -41,6 +41,13 @@ exports/
 *.json
 *.csv
 !package.json
+!test-results.json
+!playwright.config.js
+
+# Testing artifacts
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Backup files
 *.bak

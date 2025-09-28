@@ -1,0 +1,27 @@
+{
+  "name": "clinical-study-extraction-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Clinical Study Extraction System",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "install:browsers": "playwright install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@axe-core/playwright": "^4.8.2"
+  },
+  "keywords": [
+    "clinical-research",
+    "pdf-extraction", 
+    "systematic-review",
+    "ai-powered",
+    "testing",
+    "playwright"
+  ],
+  "author": "Clinical Study Extraction System Contributors",
+  "license": "MIT"
+}
