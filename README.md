@@ -281,6 +281,41 @@ For issues or questions:
 - Review the `.github/copilot-instructions.md` for development guidance
 - Open an issue in the repository
 
+## 🧪 Testing & Quality Assurance
+
+### Comprehensive End-to-End Testing
+- **12 Test Suites**: Complete coverage of all application features
+- **50+ Test Cases**: Basic functionality, PDF handling, systematic review workflow
+- **Multi-Browser Support**: Chrome, Firefox, Safari, Mobile Chrome/Safari
+- **Accessibility Testing**: WCAG 2.1 compliance verification
+- **Performance Monitoring**: Load time and responsiveness benchmarks
+
+### Testing Infrastructure
+```bash
+# Install testing dependencies
+npm install
+
+# Install Playwright browsers  
+npm run install:browsers
+
+# Run all tests
+npm test
+
+# Run with UI visible
+npm run test:headed
+
+# Interactive debugging
+npm run test:debug
+```
+
+### CI/CD Integration
+- **GitHub Actions**: Automated testing on push/PR
+- **Matrix Testing**: Parallel execution across browsers
+- **Artifact Collection**: Screenshots, videos, reports
+- **Quality Gates**: Accessibility and performance validation
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
 ## 📊 Technical Specifications
 
 - **File Size**: Single HTML file (~50KB)
@@ -289,6 +324,7 @@ For issues or questions:
 - **API**: Google Gemini 1.5 Flash
 - **Export Formats**: JSON, CSV, HTML, PDF
 - **Browser Storage**: ~5MB limit for extractions
+- **Testing**: Playwright with 50+ end-to-end tests
 
 ---
 
