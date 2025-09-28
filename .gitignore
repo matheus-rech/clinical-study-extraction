@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules (if any get added)
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Browser storage files (contain user data)
+*.localStorage
+*.sessionStorage
+
+# PDF files (user's research articles - don't commit these)
+Articles/*.pdf
+!Articles/.gitkeep
+
+# User data exports
+exports/
+*.json
+*.csv
+!package.json
+
+# Backup files
+*.bak
+*.backup
