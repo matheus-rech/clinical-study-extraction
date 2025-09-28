@@ -4,6 +4,7 @@
 - Single-page app inside `index.html`; HTML/CSS/JS are co-located. No bundler—open the file directly. Playwright tests live alongside but don’t participate in runtime.
 - Three-panel layout (form / PDF / trace). Keep DOM ids/classes like `.linked-input`, `id="pdf-canvas"`, `id="trace-log"`, and validation markers—tests and JS logic depend on them.
 - Global `AppState` stores PDF session info plus systematic review queues and databases (`sr_*` keys in localStorage). New state should be JSON-serialized and mirrored on load.
+- Sample PDFs live in `Articles/`; tests expect filenames to match `AppState.baseArticles` ordering.
 
 ## Core modules
 - `ExtractionManager` (instantiated as `extractionManager`) owns extraction records, undo stack, trace rendering, and persistence. Extend via existing hooks such as `addExtraction`, `updateStats`, `navigateToExtraction`, and remember to call `saveToLocalStorage()`.
@@ -25,6 +26,7 @@
   npm test
   ```
   Tests under `tests/*.spec.js` use helpers in `tests/helpers/test-helpers.js` and expect `window.AppState`/`window.extractionManager` globals plus sample PDFs from `Articles/` matching `AppState.baseArticles`.
+- CI: `.gitlab-ci.yml` and `.github/workflows/codex-secure-quality.yml` run Playwright, Semgrep SAST, and Codex-powered quality/security passes (see `docs/gitlab-codex-ci.md` / `docs/github-codex-ci.md`). Codex jobs require `OPENAI_API_KEY` secrets and internet access.
 
 ## Exports & compliance
 - Export helpers (`exportJSON`, `exportCSV`, `exportAuditHTML`, `exportAnnotatedPDF`, `exportMainDatabase`, `exportTraceDatabase`, `exportSystematicReview`, `exportInteractiveMap`) all funnel through `downloadFile`. Include `documentName`, timestamps, field → value maps, and coordinate payloads in any new format to keep audit parity between per-article and review-wide reports.
