@@ -50,10 +50,15 @@ test.describe('Basic Application Functionality', () => {
     await expect(exportSection).toBeVisible();
     
     // Check export buttons
-    await expect(page.getByRole('button', { name: /JSON/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /CSV/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Audit/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Ann\. PDF/ })).toBeVisible();
+    const exportSelectors = [
+      'button[onclick="exportJSON()"]',
+      'button[onclick="exportCSV()"]',
+      'button[onclick="exportAuditHTML()"]',
+      'button[onclick="exportAnnotatedPDF()"]'
+    ];
+    for (const selector of exportSelectors) {
+      await expect(page.locator(selector)).toBeVisible();
+    }
   });
 
   test('should handle keyboard shortcuts', async ({ page }) => {

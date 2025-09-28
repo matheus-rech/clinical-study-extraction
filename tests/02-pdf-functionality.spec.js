@@ -25,7 +25,7 @@ test.describe('PDF Functionality', () => {
     await expect(searchBox).toBeVisible();
     await expect(searchBox).toHaveAttribute('placeholder', 'Search PDF...');
     
-    const searchButton = page.getByRole('button', { name: /🔍/ });
+    const searchButton = page.locator('#pdf-search-input + button');
     await expect(searchButton).toBeVisible();
   });
 

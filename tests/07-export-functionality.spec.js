@@ -16,7 +16,7 @@ test.describe('Export Functionality', () => {
       'button[onclick="exportAnnotatedPDF()"]',
       'button[onclick="exportMainDatabase()"]',
       'button[onclick="exportTraceDatabase()"]',
-      'button[onclick="exportCompleteSRData()"]'
+      'button[onclick="exportSystematicReview()"]'
     ];
     
     for (const selector of buttonSelectors) {
