@@ -42,7 +42,7 @@ test.describe('Basic Application Functionality', () => {
     await expect(page.locator('#journal')).toBeVisible();
     
     // Check linked-input class
-    await expect(page.locator('#step-1 .linked-input')).toHaveCount(9); // Step 1 has 9 fields
+    await expect(page.locator('#step-1 .linked-input')).toHaveCount(10); // Step 1 has 9 fields
   });
 
   test('should show export options in trace panel', async ({ page }) => {
