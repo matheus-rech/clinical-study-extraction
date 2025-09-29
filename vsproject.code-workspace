@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../Desktop/vsproject"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chatgpt.openOnStartup": true
+	}
+}
